@@ -1,0 +1,72 @@
+# =========================
+# Build folders
+# =========================
+/Debug/
+/Release/
+/build/
+/cmake-build-*/
+
+# Object files
+*.o
+*.d
+*.su
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# =========================
+# STM32CubeIDE / Eclipse
+# =========================
+.metadata/
+.settings/
+*.launch
+
+# CDT / Eclipse internal
+*.pydevproject
+*.classpath
+
+# =========================
+# Generated files
+# =========================
+*.ioc_backup
+*.log
+*.tmp
+
+# CubeMX generated (optional – keep .ioc file!)
+/Drivers/CMSIS/RTOS2/Template/
+/Middlewares/Third_Party/FreeRTOS/Source/portable/Template/
+
+# =========================
+# Debug probe files
+# =========================
+*.stlink
+*.jlink
+*.svd
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# VS Code (if you also open project there)
+# =========================
+.vscode/
+
+# =========================
+# CMake (if enabled)
+# =========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# =========================
+# Backup files
+# =========================
+*~
+*.bak
+*.orig
