@@ -75,6 +75,7 @@ uint8_t Get_NMEA_Checksum(char *s) {
 }
 
 c6dofimu24_data_t imu_data;
+uint8_t imu_data_raw[14 + 1]; // 14 for IMU data, 1 stop bit
 /* USER CODE END 0 */
 
 /**
@@ -148,10 +149,12 @@ int main(void)
 	  		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
 	  		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
 
-	  		c6dofimu24_read_data(&imu_data);
+			// c6dofimu24_read_data(&imu_data);
+	  		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
+	  		imu_data_raw[14] = '\0';
 	  		c6dofimu24_clear_data_ready();
 
-	  		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+	  		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, strlen(imu_data_raw), 100);
 	  		// 5. Ochrana: počkáme, kým timer prelezie vyššie, aby sme v tejto sekunde neposlali znova
 	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 8500);
 	  	}

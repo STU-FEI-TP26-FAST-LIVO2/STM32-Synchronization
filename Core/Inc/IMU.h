@@ -42,6 +42,7 @@ HAL_StatusTypeDef c6dofimu24_read_gyro(c6dofimu24_axes_t *gyro);
 HAL_StatusTypeDef c6dofimu24_read_accel(c6dofimu24_axes_t *accel);
 HAL_StatusTypeDef c6dofimu24_read_temperature(float *temperature);
 HAL_StatusTypeDef c6dofimu24_read_data(c6dofimu24_data_t *data_out);
+HAL_StatusTypeDef c6dofimu24_read_data_raw(uint8_t data_buf[14]);
 HAL_StatusTypeDef c6dofimu24_default_cfg();
 
 #endif /* INC_IMU_H_ */

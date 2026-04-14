@@ -313,6 +313,19 @@ HAL_StatusTypeDef c6dofimu24_read_data(c6dofimu24_data_t *data_out)
     return HAL_OK;
 }
 
+HAL_StatusTypeDef c6dofimu24_read_data_raw(uint8_t data_buf[14])
+{
+    HAL_StatusTypeDef status = HAL_I2C_Mem_Read(
+                                &hi2c1,
+                                C6DOFIMU24_DEVICE_ADDRESS,
+                                C6DOFIMU24_REG0_TEMP_DATA1,
+                                1,
+                                data_buf,
+                                14,
+                                100);
+    return status;
+}
+
 HAL_StatusTypeDef c6dofimu24_default_cfg()
 {
     HAL_StatusTypeDef status;
@@ -403,13 +416,13 @@ HAL_StatusTypeDef c6dofimu24_default_cfg()
     // Configure gyro and accel (reuse your functions)
     status = c6dofimu24_set_gyro_fs_odr(
                 C6DOFIMU24_GYRO_FS_SEL_2000DPS,
-                C6DOFIMU24_GYRO_ODR_12_5HZ);
+                C6DOFIMU24_GYRO_ODR_50HZ);
     if (status != HAL_OK)
         return status;
 
     status = c6dofimu24_set_accel_fs_odr(
                 C6DOFIMU24_ACCEL_FS_SEL_4G,
-                C6DOFIMU24_ACCEL_ODR_12_5HZ);
+                C6DOFIMU24_ACCEL_ODR_50HZ);
     if (status != HAL_OK)
         return status;
 
