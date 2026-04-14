@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -58,6 +59,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 #include <stdio.h>
 #include <string.h>
+#include "IMU.h"
 
 char gps_msg[128]; // Zväčšené pre istotu
 int sec = 0;
@@ -71,6 +73,8 @@ uint8_t Get_NMEA_Checksum(char *s) {
     }
     return check;
 }
+
+c6dofimu24_data_t imu_data;
 /* USER CODE END 0 */
 
 /**
@@ -105,9 +109,13 @@ int main(void)
   MX_TIM1_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  MX_USART2_UART_Init();
+  MX_I2C1_Init();
+
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_StatusTypeDef status = c6dofimu24_default_cfg();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -140,6 +148,10 @@ int main(void)
 	  		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
 	  		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
 
+	  		c6dofimu24_read_data(&imu_data);
+	  		c6dofimu24_clear_data_ready();
+
+	  		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)gps_msg, strlen(gps_msg), 100);
 	  		// 5. Ochrana: počkáme, kým timer prelezie vyššie, aby sme v tejto sekunde neposlali znova
 	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 8500);
 	  	}
