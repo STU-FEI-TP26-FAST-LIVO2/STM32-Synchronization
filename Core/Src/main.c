@@ -112,7 +112,6 @@ int main(void)
   MX_TIM2_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
-
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
@@ -127,7 +126,7 @@ int main(void)
 
 	  	// PPS je HIGH od 0 do 5000. Padá pri 5000 (500ms).
 	  	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
-	  	if (timer_val >= 5050 && timer_val < 8000)
+	  	if (timer_val >= 30050 && timer_val < 48000)
 	  	{
 	  		// 1. Inkrementácia času (simulácia GPS sekúnd)
 	  		if(++sec >= 60) {
@@ -156,7 +155,7 @@ int main(void)
 
 	  		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, strlen(imu_data_raw), 100);
 	  		// 5. Ochrana: počkáme, kým timer prelezie vyššie, aby sme v tejto sekunde neposlali znova
-	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 8500);
+	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 50000);
 	  	}
 
     /* USER CODE END WHILE */
