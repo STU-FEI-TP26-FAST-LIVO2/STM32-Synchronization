@@ -79,6 +79,7 @@ uint8_t Get_NMEA_Checksum(char *s) {
 
 uint8_t gprmc_flag = 0;
 volatile uint16_t sec_total = 0; // 18 hours operational time max :p
+volatile uint8_t imu_drdy_flag = 0;
 c6dofimu24_data_t imu_data;
 uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
 uint8_t uart_debug_msg[100];
@@ -157,12 +158,27 @@ int main(void)
 
 		// 4. Odoslanie cez UART1 (PA9)
 		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
-		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+//		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+		uart_status = HAL_UART_Transmit_DMA(&huart1, (uint8_t*)gps_msg, strlen(gps_msg));
 
 		//c6dofimu24_clear_data_ready();
 	}
 	if(gprmc_flag && timer_val <= 30000)
 		gprmc_flag = 0;
+
+	if(imu_drdy_flag)
+	{
+		imu_drdy_flag = 0;
+		// c6dofimu24_read_data(&imu_data);
+//		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
+		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
+//		imu_data_raw[14] = '\0';
+		c6dofimu24_clear_data_ready();
+		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
+
+//		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
+		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+	}
 
     /* USER CODE END WHILE */
 
@@ -219,15 +235,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == IMU_DRDY_Pin)
 	{
-		// c6dofimu24_read_data(&imu_data);
-//		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
-		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
-//		imu_data_raw[14] = '\0';
-		c6dofimu24_clear_data_ready();
-		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
-
-//		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
-		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+		imu_drdy_flag = 1;
 	}
 }
 /* USER CODE END 4 */
