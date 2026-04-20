@@ -171,13 +171,22 @@ int main(void)
 		imu_drdy_flag = 0;
 		// c6dofimu24_read_data(&imu_data);
 //		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
-		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
+//		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
+//		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
+
+	    HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(
+	                                &hi2c1,
+	                                C6DOFIMU24_DEVICE_ADDRESS,
+	                                C6DOFIMU24_REG0_TEMP_DATA1,
+	                                1,
+									imu_data_raw,
+	                                14);
 //		imu_data_raw[14] = '\0';
-		c6dofimu24_clear_data_ready();
-		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
+//		c6dofimu24_clear_data_ready();
+//		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
 
 //		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
-		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+//		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 	}
 
     /* USER CODE END WHILE */
@@ -238,6 +247,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		imu_drdy_flag = 1;
 	}
 }
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
+	c6dofimu24_clear_data_ready();
+}
+
+
 /* USER CODE END 4 */
 
 /**
