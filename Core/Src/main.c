@@ -74,6 +74,8 @@ uint8_t Get_NMEA_Checksum(char *s) {
     return check;
 }
 
+uint8_t gprmc_flag = 0;
+volatile uint16_t sec_total = 0; // 18 hours operational time max :p
 c6dofimu24_data_t imu_data;
 uint8_t imu_data_raw[14 + 1]; // 14 for IMU data, 1 stop bit
 /* USER CODE END 0 */
@@ -124,39 +126,44 @@ int main(void)
   {
 	  uint32_t timer_val = __HAL_TIM_GET_COUNTER(&htim1);
 
-	  	// PPS je HIGH od 0 do 5000. Padá pri 5000 (500ms).
-	  	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
-	  	if (timer_val >= 30050 && timer_val < 48000)
-	  	{
-	  		// 1. Inkrementácia času (simulácia GPS sekúnd)
-	  		if(++sec >= 60) {
-	  			sec = 0;
-	  			if(++min >= 60) { min = 0; hod++; }
-	  		}
+	// PPS je HIGH od 0 do 30000. Padá pri 5000 (500ms).
+	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
+	if (timer_val >= 30050 && !gprmc_flag)
+	{
+		// Ochrana, aby sa neposlalo viackrát
+		gprmc_flag = 1;
+		// 1. Inkrementácia času (simulácia GPS sekúnd)
+		++sec_total;
+		if(++sec >= 60) {
+			sec = 0;
+			if(++min >= 60) { min = 0; hod++; }
+		}
 
-	  		// 2. Formátovanie GPRMC správy
-	  		// Hesai vyžaduje platný dátum, tu je fixne 090326 (9. Marec 2026)
-	  		sprintf(gps_msg, "$GPRMC,%02d%02d%02d,A,4808.0000,N,01706.0000,E,0.0,0.0,090323,,,A*", hod, min, sec);
+		// 2. Formátovanie GPRMC správy
+		// Hesai vyžaduje platný dátum, tu je fixne 090326 (9. Marec 2026)
+		sprintf(gps_msg, "$GPRMC,%02d%02d%02d,A,4808.0000,N,01706.0000,E,0.0,0.0,090323,,,A*", hod, min, sec);
 
-	  		// 3. Pridanie Checksumu
-	  		uint8_t crc = Get_NMEA_Checksum(gps_msg);
-	  		char crc_str[10];
-	  		sprintf(crc_str, "%02X\r\n", crc);
-	  		strcat(gps_msg, crc_str);
+		// 3. Pridanie Checksumu
+		uint8_t crc = Get_NMEA_Checksum(gps_msg);
+		char crc_str[10];
+		sprintf(crc_str, "%02X\r\n", crc);
+		strcat(gps_msg, crc_str);
 
-	  		// 4. Odoslanie cez UART1 (PA9)
-	  		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
-	  		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+		// 4. Odoslanie cez UART1 (PA9)
+		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
+		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
 
-			// c6dofimu24_read_data(&imu_data);
-	  		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
-	  		imu_data_raw[14] = '\0';
-	  		c6dofimu24_clear_data_ready();
+		//c6dofimu24_clear_data_ready();
+	}
+	if(gprmc_flag && timer_val <= 30000)
+		gprmc_flag = 0;
 
-	  		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, strlen(imu_data_raw), 100);
-	  		// 5. Ochrana: počkáme, kým timer prelezie vyššie, aby sme v tejto sekunde neposlali znova
-	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 50000);
-	  	}
+	// c6dofimu24_read_data(&imu_data);
+	HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
+	imu_data_raw[14] = '\0';
+	c6dofimu24_clear_data_ready();
+
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, strlen(imu_data_raw), 100);
 
     /* USER CODE END WHILE */
 
