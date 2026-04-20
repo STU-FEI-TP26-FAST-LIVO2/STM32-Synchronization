@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "i2c.h"
 #include "tim.h"
 #include "usart.h"
@@ -61,6 +62,8 @@ void SystemClock_Config(void);
 #include <string.h>
 #include "IMU.h"
 
+#define IMU_DATA_RAW_SIZE (14 + 1)
+
 char gps_msg[128]; // Zväčšené pre istotu
 int sec = 0;
 int min = 15;
@@ -77,7 +80,8 @@ uint8_t Get_NMEA_Checksum(char *s) {
 uint8_t gprmc_flag = 0;
 volatile uint16_t sec_total = 0; // 18 hours operational time max :p
 c6dofimu24_data_t imu_data;
-uint8_t imu_data_raw[14 + 1]; // 14 for IMU data, 1 stop bit
+uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
+uint8_t uart_debug_msg[100];
 /* USER CODE END 0 */
 
 /**
@@ -109,12 +113,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_Delay(500);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_StatusTypeDef status = c6dofimu24_default_cfg();
@@ -157,13 +163,6 @@ int main(void)
 	}
 	if(gprmc_flag && timer_val <= 30000)
 		gprmc_flag = 0;
-
-	// c6dofimu24_read_data(&imu_data);
-	HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
-	imu_data_raw[14] = '\0';
-	c6dofimu24_clear_data_ready();
-
-	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, strlen(imu_data_raw), 100);
 
     /* USER CODE END WHILE */
 
@@ -216,7 +215,21 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin == IMU_DRDY_Pin)
+	{
+		// c6dofimu24_read_data(&imu_data);
+//		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
+		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
+//		imu_data_raw[14] = '\0';
+		c6dofimu24_clear_data_ready();
+		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
 
+//		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
+		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+	}
+}
 /* USER CODE END 4 */
 
 /**
