@@ -80,6 +80,7 @@ uint8_t Get_NMEA_Checksum(char *s) {
 uint8_t gprmc_flag = 0;
 volatile uint16_t sec_total = 0; // 18 hours operational time max :p
 volatile uint8_t imu_drdy_flag = 0;
+volatile uint8_t imu_dma_busy_flag = 0;
 c6dofimu24_data_t imu_data;
 uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
 uint8_t uart_debug_msg[100];
@@ -125,6 +126,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_StatusTypeDef status = c6dofimu24_default_cfg();
+  HAL_Delay(100);
+  status = c6dofimu24_clear_data_ready();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -166,27 +169,30 @@ int main(void)
 	if(gprmc_flag && timer_val <= 30000)
 		gprmc_flag = 0;
 
-	if(imu_drdy_flag)
+	if(imu_drdy_flag && !imu_dma_busy_flag)
 	{
 		imu_drdy_flag = 0;
+		imu_dma_busy_flag = 1;
 		// c6dofimu24_read_data(&imu_data);
 //		HAL_StatusTypeDef imu_status = c6dofimu24_read_data_raw(imu_data_raw);
 //		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
 //		HAL_StatusTypeDef imu_status = c6dofimu24_read_data(&imu_data);
 
-	    HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(
+	    HAL_StatusTypeDef status = HAL_I2C_Mem_Read_IT(
 	                                &hi2c1,
 	                                C6DOFIMU24_DEVICE_ADDRESS,
 	                                C6DOFIMU24_REG0_TEMP_DATA1,
 	                                1,
 									imu_data_raw,
 	                                14);
+
+	    sprintf(uart_debug_msg, "DRDY int received, init I2C DMA with status %d\r\n", status);
+		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 //		imu_data_raw[14] = '\0';
 //		c6dofimu24_clear_data_ready();
 //		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
 
 //		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
-//		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 	}
 
     /* USER CODE END WHILE */
@@ -245,13 +251,65 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == IMU_DRDY_Pin)
 	{
 		imu_drdy_flag = 1;
+		sprintf(uart_debug_msg, "EXTI DRDY interrupt\r\n");
+		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+
 	}
+}
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+    sprintf(uart_debug_msg, "Callback: HAL_I2C_ErrorCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MasterRxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MasterTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MemTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_SlaveRxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_SlaveTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_AbortCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_AddrCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
+
 	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
 	c6dofimu24_clear_data_ready();
+	imu_dma_busy_flag = 0;
 }
 
 
