@@ -48,6 +48,7 @@
 
 /* USER CODE BEGIN PV */
 HAL_StatusTypeDef uart_status;
+volatile HAL_StatusTypeDef uart_status_from_IT;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -186,8 +187,8 @@ int main(void)
 									imu_data_raw,
 	                                14);
 
-	    sprintf(uart_debug_msg, "DRDY int received, init I2C DMA with status %d\r\n", status);
-		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+	    // sprintf(uart_debug_msg, "DRDY int received, init I2C DMA with status %d, UART status from IT is %d\r\n", status, uart_status_from_IT);
+		// uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 //		imu_data_raw[14] = '\0';
 //		c6dofimu24_clear_data_ready();
 //		sprintf(uart_debug_msg, "IMU data: accel_x: %d, temp: %d\r\n", (int)(imu_data.accel.x*100), (int)(imu_data.temperature*100));
@@ -251,8 +252,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == IMU_DRDY_Pin)
 	{
 		imu_drdy_flag = 1;
-		sprintf(uart_debug_msg, "EXTI DRDY interrupt\r\n");
-		uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+		// sprintf(uart_debug_msg, "EXTI DRDY interrupt\r\n");
+		// uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
 
 	}
 }
@@ -307,7 +308,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
 
-	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
+	uart_status_from_IT = HAL_UART_Transmit(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE, 100);
 	c6dofimu24_clear_data_ready();
 	imu_dma_busy_flag = 0;
 }
