@@ -83,7 +83,7 @@ volatile uint16_t sec_total = 0; // 18 hours operational time max :p
 volatile uint8_t imu_drdy_flag = 0;
 volatile uint8_t imu_dma_busy_flag = 0;
 c6dofimu24_data_t imu_data;
-uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
+volatile uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
 uint8_t uart_debug_msg[100];
 /* USER CODE END 0 */
 
@@ -233,6 +233,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == IMU_DRDY_Pin)
 	{
+		uint16_t ticks = __HAL_TIM_GET_COUNTER(&htim1);
+
+		uint16_t *major_ptr = (uint16_t*)(&imu_data_raw[14]);
+		uint16_t *minor_ptr = (uint16_t*)(&imu_data_raw[16]);
+
+		*major_ptr = sec_total;
+		*minor_ptr = ticks;
+
+		imu_data_raw[18] = '\n';
+		imu_data_raw[19] = '\0';
 		imu_drdy_flag = 1;
 	}
 }
