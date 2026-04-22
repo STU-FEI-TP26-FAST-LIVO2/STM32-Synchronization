@@ -78,7 +78,7 @@ uint8_t Get_NMEA_Checksum(char *s) {
     return check;
 }
 
-uint8_t gprmc_flag = 0;
+volatile uint8_t gprmc_flag = 0;
 volatile uint16_t sec_total = 0; // 18 hours operational time max :p
 volatile uint8_t imu_drdy_flag = 0;
 volatile uint8_t imu_dma_busy_flag = 0;
@@ -124,7 +124,10 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_Delay(500);
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+
+  HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);   // CC1 interrupt
+  HAL_TIM_Base_Start_IT(&htim1);                 // overflow interrupt
+
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_StatusTypeDef status = c6dofimu24_default_cfg();
   HAL_Delay(100);
@@ -135,14 +138,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  uint32_t timer_val = __HAL_TIM_GET_COUNTER(&htim1);
+	// uint32_t timer_val = __HAL_TIM_GET_COUNTER(&htim1);
 
 	// PPS je HIGH od 0 do 30000. Padá pri 5000 (500ms).
 	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
-	if (timer_val >= 30050 && !gprmc_flag)
+	if (gprmc_flag)
 	{
 		// Ochrana, aby sa neposlalo viackrát
-		gprmc_flag = 1;
+		gprmc_flag = 0;
 		// 1. Inkrementácia času (simulácia GPS sekúnd)
 		++sec_total;
 		if(++sec >= 60) {
@@ -167,8 +170,6 @@ int main(void)
 
 		//c6dofimu24_clear_data_ready();
 	}
-	if(gprmc_flag && timer_val <= 30000)
-		gprmc_flag = 0;
 
 	if(imu_drdy_flag && !imu_dma_busy_flag)
 	{
@@ -287,6 +288,17 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 {
 	sprintf(uart_debug_msg, "Callback: HAL_I2C_AddrCallback\r\n");
 	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1 &&
+        htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    {
+        // PWM switched LOW here - flag to send GPRMC
+        //imu_drdy_flag = 1;   // example action
+    	gprmc_flag = 1;
+    }
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
