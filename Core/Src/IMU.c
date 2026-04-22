@@ -416,13 +416,13 @@ HAL_StatusTypeDef c6dofimu24_default_cfg()
     // Configure gyro and accel (reuse your functions)
     status = c6dofimu24_set_gyro_fs_odr(
                 C6DOFIMU24_GYRO_FS_SEL_2000DPS,
-                C6DOFIMU24_GYRO_ODR_12_5HZ);
+                C6DOFIMU24_GYRO_ODR_200HZ);
     if (status != HAL_OK)
         return status;
 
     status = c6dofimu24_set_accel_fs_odr(
                 C6DOFIMU24_ACCEL_FS_SEL_4G,
-                C6DOFIMU24_ACCEL_ODR_12_5HZ);
+                C6DOFIMU24_ACCEL_ODR_200HZ);
     if (status != HAL_OK)
         return status;
 
