@@ -63,7 +63,7 @@ void SystemClock_Config(void);
 #include <string.h>
 #include "IMU.h"
 
-#define IMU_DATA_RAW_SIZE (14 + 1)
+#define IMU_DATA_RAW_SIZE (14 + 4 + 2)
 
 char gps_msg[128]; // Zväčšené pre istotu
 int sec = 0;
@@ -146,12 +146,6 @@ int main(void)
 	{
 		// Ochrana, aby sa neposlalo viackrát
 		gprmc_flag = 0;
-		// 1. Inkrementácia času (simulácia GPS sekúnd)
-		++sec_total;
-		if(++sec >= 60) {
-			sec = 0;
-			if(++min >= 60) { min = 0; hod++; }
-		}
 
 		// 2. Formátovanie GPRMC správy
 		// Hesai vyžaduje platný dátum, tu je fixne 090326 (9. Marec 2026)
@@ -298,6 +292,24 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
         // PWM switched LOW here - flag to send GPRMC
         //imu_drdy_flag = 1;   // example action
     	gprmc_flag = 1;
+    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1)
+    {
+        ++sec_total;
+
+        if (++sec >= 60)
+        {
+            sec = 0;
+            if (++min >= 60)
+            {
+                min = 0;
+                ++hod;
+            }
+        }
     }
 }
 
