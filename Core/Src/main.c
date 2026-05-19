@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
+#include "i2c.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -46,6 +48,7 @@
 
 /* USER CODE BEGIN PV */
 HAL_StatusTypeDef uart_status;
+volatile HAL_StatusTypeDef uart_status_from_IT;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,6 +61,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 #include <stdio.h>
 #include <string.h>
+#include "IMU.h"
+
+#define IMU_DATA_RAW_SIZE (14 + 4 + 2)
 
 char gps_msg[128]; // Zväčšené pre istotu
 int sec = 0;
@@ -71,6 +77,14 @@ uint8_t Get_NMEA_Checksum(char *s) {
     }
     return check;
 }
+
+volatile uint8_t gprmc_flag = 0;
+volatile uint16_t sec_total = 0; // 18 hours operational time max :p
+volatile uint8_t imu_drdy_flag = 0;
+volatile uint8_t imu_dma_busy_flag = 0;
+c6dofimu24_data_t imu_data;
+volatile uint8_t imu_data_raw[IMU_DATA_RAW_SIZE]; // 14 for IMU data, 1 stop bit
+uint8_t uart_debug_msg[100];
 /* USER CODE END 0 */
 
 /**
@@ -102,47 +116,67 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  MX_USART2_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_Delay(500);
+
+  HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);   // CC1 interrupt
+  HAL_TIM_Base_Start_IT(&htim1);                 // overflow interrupt
+
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_StatusTypeDef status = c6dofimu24_default_cfg();
+  HAL_Delay(100);
+  status = c6dofimu24_clear_data_ready();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  uint32_t timer_val = __HAL_TIM_GET_COUNTER(&htim1);
+	// uint32_t timer_val = __HAL_TIM_GET_COUNTER(&htim1);
 
-	  	// PPS je HIGH od 0 do 5000. Padá pri 5000 (500ms).
-	  	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
-	  	if (timer_val >= 5050 && timer_val < 8000)
-	  	{
-	  		// 1. Inkrementácia času (simulácia GPS sekúnd)
-	  		if(++sec >= 60) {
-	  			sec = 0;
-	  			if(++min >= 60) { min = 0; hod++; }
-	  		}
+	// PPS je HIGH od 0 do 30000. Padá pri 5000 (500ms).
+	// Čakáme, kým timer dosiahne 5050 (teda 505ms - tesne po páde na 0).
+	if (gprmc_flag)
+	{
+		// Ochrana, aby sa neposlalo viackrát
+		gprmc_flag = 0;
 
-	  		// 2. Formátovanie GPRMC správy
-	  		// Hesai vyžaduje platný dátum, tu je fixne 090326 (9. Marec 2026)
-	  		sprintf(gps_msg, "$GPRMC,%02d%02d%02d,A,4808.0000,N,01706.0000,E,0.0,0.0,090323,,,A*", hod, min, sec);
+		// 2. Formátovanie GPRMC správy
+		// Hesai vyžaduje platný dátum, tu je fixne 090326 (9. Marec 2026)
+		sprintf(gps_msg, "$GPRMC,%02d%02d%02d,A,4808.0000,N,01706.0000,E,0.0,0.0,090323,,,A*", hod, min, sec);
 
-	  		// 3. Pridanie Checksumu
-	  		uint8_t crc = Get_NMEA_Checksum(gps_msg);
-	  		char crc_str[10];
-	  		sprintf(crc_str, "%02X\r\n", crc);
-	  		strcat(gps_msg, crc_str);
+		// 3. Pridanie Checksumu
+		uint8_t crc = Get_NMEA_Checksum(gps_msg);
+		char crc_str[10];
+		sprintf(crc_str, "%02X\r\n", crc);
+		strcat(gps_msg, crc_str);
 
-	  		// 4. Odoslanie cez UART1 (PA9)
-	  		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
-	  		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+		// 4. Odoslanie cez UART1 (PA9)
+		// Správa sa začne posielať v 505ms a skončí cca v 580ms.
+//		uart_status = HAL_UART_Transmit(&huart1, (uint8_t*)gps_msg, strlen(gps_msg), 100);
+		uart_status = HAL_UART_Transmit_DMA(&huart1, (uint8_t*)gps_msg, strlen(gps_msg));
 
-	  		// 5. Ochrana: počkáme, kým timer prelezie vyššie, aby sme v tejto sekunde neposlali znova
-	  		while(__HAL_TIM_GET_COUNTER(&htim1) < 8500);
-	  	}
+		//c6dofimu24_clear_data_ready();
+	}
+
+	if(imu_drdy_flag && !imu_dma_busy_flag)
+	{
+		imu_drdy_flag = 0;
+		imu_dma_busy_flag = 1;
+	    HAL_StatusTypeDef status = HAL_I2C_Mem_Read_IT(
+	                                &hi2c1,
+	                                C6DOFIMU24_DEVICE_ADDRESS,
+	                                C6DOFIMU24_REG0_TEMP_DATA1,
+	                                1,
+									imu_data_raw,
+	                                14);
+	}
 
     /* USER CODE END WHILE */
 
@@ -195,6 +229,107 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin == IMU_DRDY_Pin)
+	{
+		uint16_t ticks = __HAL_TIM_GET_COUNTER(&htim1);
+
+		uint16_t *major_ptr = (uint16_t*)(&imu_data_raw[14]);
+		uint16_t *minor_ptr = (uint16_t*)(&imu_data_raw[16]);
+
+		*major_ptr = sec_total;
+		*minor_ptr = ticks;
+
+		imu_data_raw[18] = '\n';
+		imu_data_raw[19] = '\0';
+		imu_drdy_flag = 1;
+	}
+}
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+    sprintf(uart_debug_msg, "Callback: HAL_I2C_ErrorCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MasterRxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MasterTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_MemTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_SlaveRxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_SlaveTxCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_AbortCpltCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
+{
+	sprintf(uart_debug_msg, "Callback: HAL_I2C_AddrCallback\r\n");
+	uart_status = HAL_UART_Transmit(&huart2, (uint8_t*)uart_debug_msg, strlen(uart_debug_msg), 100);
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1 &&
+        htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    {
+        // PWM switched LOW here - flag to send GPRMC
+        //imu_drdy_flag = 1;   // example action
+    	gprmc_flag = 1;
+    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1)
+    {
+        ++sec_total;
+
+        if (++sec >= 60)
+        {
+            sec = 0;
+            if (++min >= 60)
+            {
+                min = 0;
+                ++hod;
+            }
+        }
+    }
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	uart_status_from_IT = HAL_UART_Transmit_IT(&huart2, (uint8_t*)imu_data_raw, IMU_DATA_RAW_SIZE);
+	c6dofimu24_clear_data_ready();
+	imu_dma_busy_flag = 0;
+}
+
 
 /* USER CODE END 4 */
 
