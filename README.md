@@ -334,20 +334,7 @@ This timer is used as a PPS-like timing source.
 
 # PPS Timing Logic
 
-The firmware comments indicate:
-
-```c
-// PPS is HIGH from 0 to 30000
-// Falling edge occurs near 500 ms
-```
-
-The firmware waits until approximately:
-
-```text
-505 ms
-```
-
-before sending the GPS sentence.
+LiDAR datasheet specifies, that GPRMC should be transmitted after the falling edge of PPS. In our case that is 500ms. This feature is implemented utilizing interrupts for falling edge of PPS, which sets the GPRMC flag, that controls the transmission of GPRMC.
 
 This ensures:
 

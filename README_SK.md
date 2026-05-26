@@ -333,20 +333,10 @@ Tento časovač sa používa ako zdroj PPS.
 
 ## Logika časovania PPS
 
-Komentáre vo firmvéri uvádzajú:
 
-```c
-// PPS je v logickej 1 (HIGH) od 0 do 30000
-// Klesajúca hrana nastáva okolo 500 ms
-```
+LiDAR datasheet specifies, that GPRMC should be transmitted after the falling edge of PPS. In our case that is 500ms. This feature is implemented utilizing interrupts for falling edge of PPS, which sets the GPRMC flag, that controls the transmission of GPRMC.
 
-Firmvér čaká približne:
-
-```text
-505 ms
-```
-
-pred odoslaním GPS vety.
+Datasheed LiDAR-u uvádza, že GPRMC veta má byť poslaná po klesajúcej hrane PPS signálu, čo v našom projekte predstavuje čas približne 500ms od začiatku periódy. Naša implementácia využíva prerušenie pri klesajúcej hrane PPS signálu, v rámci ktorého sa nastaví príznak (flag), ktorý v hlavnej slučke spúšťa posielanie GPRMC vety. 
 
 To zaisťuje:
 
