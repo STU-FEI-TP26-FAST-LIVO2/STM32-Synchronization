@@ -1,55 +1,55 @@
-# STM32 LiDAR + GPS + IMU Emulation Firmware
+# Synchronizačný firmvér pre STM32 LiDAR + GPS + IMU
 
-## Overview
+## Prehľad
 
-This project is an STM32 firmware application designed to emulate and synchronize:
+Tento projekt obsahuje aplikáciu  STM32 navrhnutú na synchronizáciu a emuláciu:
 
-* GPS timing messages (NMEA GPRMC)
-* IMU sensor acquisition
-* LiDAR synchronization timing
-* Camera hardware triggering
+* Časových správ GPS (NMEA GPRMC)
+* Zberu dát z IMU senzora
+* Synchronizačného signálu pre LiDAR (PPS)
+* Hardvérového triggerovania kamery
 
-The firmware is implemented on an STM32F103 MCU using STM32 HAL drivers generated from STM32CubeMX.
+Firmvér je implementovaný na mikrokontroléri STM32F103C8T6 (Bluepill) s využitím ovládačov STM32 HAL vygenerovaných nástrojom STM32CubeMX.
 
-The project combines:
+Projekt využíva:
 
-* UART communication
-* DMA transfers
-* I2C IMU acquisition
-* External interrupt synchronization
-* Timer-based PPS timing
-* Hardware PWM triggering
+* UART komunikáciu
+* DMA prenosy
+* I2C zber dát z IMU
+* Synchronizáciu pomocou externých prerušení
+* Časovanie PPS (Pulse Per Second) založené na časovačoch
+* PWM výstupy
 
 ---
 
-# Setup / Build / Flash Guide
+# Návod na spustenie
 
-## Requirements
+## Požiadavky
 
-Required tools:
+Požadované nástroje:
 
 * STM32CubeIDE
-* ST-Link Utility or STM32CubeProgrammer
-* ST-Link V2 programmer/debugger
+* ST-Link Utility alebo STM32CubeProgrammer
+* Programátor/debugger ST-Link V2
 
 ---
 
-## Build Procedure
+## Postup kompilácie
 
-1. Open the project in STM32CubeIDE.
-2. Select:
+1. Otvorte projekt v prostredí STM32CubeIDE.
+2. Vyberte:
 
 ```text
 Project -> Build Configurations -> Set Active -> Release
 ```
 
-3. Build the firmware:
+3. Kompilácia firmvéru:
 
 ```text
 Project -> Build Project
 ```
 
-The generated binary will be located in:
+Vygenerovaný binárny súbor sa bude nachádzať v priečinku:
 
 ```text
 /Release
@@ -57,228 +57,224 @@ The generated binary will be located in:
 
 ---
 
-## Flash Procedure
+## Postup nahrávania
 
-1. Connect the ST-Link programmer to the STM32F103 Bluepill.
-2. Open ST-Link Utility or STM32CubeProgrammer.
-3. Connect to target.
-4. Load the generated `.hex` or `.bin` file.
-5. Flash the firmware.
-
----
-
-## Post-Flash Procedure
-
-After flashing completes:
-
-1. Restart or power-cycle the STM32.
-2. The firmware becomes fully operational after reboot.
-
-This restart sequence is required to correctly initialize synchronization peripherals and DMA state machines.
+1. Pripojte programátor ST-Link k vývojovej doske STM32F103 Bluepill.
+2. Otvorte ST-Link Utility alebo STM32CubeProgrammer.
+3. Pripojte sa k cieľovému zariadeniu (target).
+4. Načítajte vygenerovaný súbor `.hex` alebo `.bin`.
+5. Nahrajte firmvér.
 
 ---
 
-## Recovery Procedure
+## Postup po nahratí
 
-In case of synchronization failure or unexpected runtime behavior:
+Po dokončení nahrávania:
 
-```text
-Reboot the STM32 device.
-```
+1. Reštartujte alebo odpojte a znova pripojte napájanie STM32.
+2. Firmvér sa stane plne funkčným až po reštarte.
 
-No additional recovery sequence is required.
+Tento reštart je nevyhnutný pre správnu inicializáciu synchronizačných periférií a stavových automatov DMA.
 
 ---
 
-# Build Environment
+## Postup obnovy
 
-Generated using:
+V prípade zlyhania synchronizácie alebo neočakávaného správania počas behu programu **reštartujte zariadenie STM32**, stačí odpojiť a pripojiť napájanie.
 
-* STM32CubeMX
-* STM32 HAL
+Nie je potrebný žiadny dodatočný postup obnovy.
+
+---
+
+## Vývojové prostredie
+
+Projekt využíva nasledujúce nástroje:
+
 * STM32CubeIDE
+* STM32CubeMX
+* STM32 HAL (knižnica)
 
-Target MCU family:
+Cieľová rada MCU:
 
 ```text
 STM32F1xx
 ```
 
-In this particular project we used STM32F103 Bluepill.
+V tomto projekte využívame dosku STM32F103 Bluepill.
 
 ---
 
-# Main Features
+# Hlavné funkcie
 
-## GPS NMEA Emulation
+## Emulácia GPS NMEA
 
-The firmware periodically generates a valid `$GPRMC` NMEA sentence and transmits it over UART using DMA.
+Firmvér periodicky generuje platnú NMEA vetu `$GPRMC` a odosiela ju cez UART s využitím DMA prenosu.
 
-Example generated sentence:
+Príklad vygenerovanej vety:
 
 ```text
 $GPRMC,121530,A,4808.0000,N,01706.0000,E,0.0,0.0,090323,,,A*XX
 ```
 
-The checksum is dynamically calculated before transmission.
+Kontrolný súčet sa vypočítava dynamicky pred každým odoslaním.
 
-### GPS Transmission Flow
+### Tok programu pri prenose GPS
 
-1. Timer event occurs
-2. Internal software clock increments
-3. Firmware generates GPRMC message
-4. NMEA checksum is calculated
-5. Message is transmitted via UART1 DMA
+1. Nastane udalosť časovača
+2. Interné softvérové hodiny sa inkrementujú
+3. Firmvér vygeneruje správu GPRMC pre aktuálny čas
+4. Vypočíta sa NMEA kontrolný súčet
+5. Správa sa odošle cez UART1 pomocou DMA
 
 ---
 
-# IMU Acquisition
+## Zber dát z IMU
 
-The firmware interfaces with a 6DOF IMU over I2C.
+Firmvér komunikuje s 6DOF IMU senzorom cez zbernicu I2C.
 
-The IMU driver supports:
+Ovládač IMU podporuje:
 
-* Accelerometer configuration
-* Gyroscope configuration
-* Temperature acquisition
-* Raw burst reading
-* WHO_AM_I verification
-* Device reset
+* Konfiguráciu akcelerometra
+* Konfiguráciu gyroskopu
+* Meranie teploty
+* Sekvenčné čítanie surových dát
+* Overenie zariadenia pomocou registra `WHO_AM_I`
+* Reset zariadenia
 
-Files involved:
+Relevantné súbory:
 
 * `Core/Src/IMU.c`
 * `Core/Inc/IMU.h`
 
 ---
 
-# Synchronization Architecture
+# Synchronizačná architektúra
 
-## External Interrupt Synchronization
+## Synchronizácia externým prerušením
 
-The IMU data-ready pin triggers an EXTI interrupt.
+Pin IMU senzora indikujúci pripravenosť dát (DRDY - Data Ready) spúšťa prerušenie EXTI.
 
-Inside the interrupt:
+Vo vnútri rutiny prerušenia sa vykoná:
 
-* Current timer ticks are captured
-* Timestamp metadata is appended
-* DMA-safe acquisition flags are set
+* Zachytenie aktuálneho tiku časovača
+* Pridanie metadát s časovou pečiatkou (timestamp)
+* Nastavenie príznakov (flags) pre bezpečný zber dát pomocou DMA
 
-This enables:
+To umožňuje:
 
-* precise timestamping
-* synchronization between LiDAR/GPS/IMU streams
-* deterministic acquisition timing
+* Presné priradenie času
+* Synchronizáciu medzi dátovými tokmi LiDAR / GPS / IMU
+* Deterministické časovanie zberu dát
 
 ---
 
-# UART Configuration
+# Konfigurácia UART
 
 ## USART1
 
-Used for:
+Použitie:
 
-* GPS NMEA transmission
+* Prenos GPS NMEA viet
 
-Configuration:
+Konfigurácia:
 
-* Baudrate: 9600
-* DMA enabled
+* Prenosová rýchlosť: 9600 Bd
+* DMA prenos
 
 ## USART2
 
-Used for:
+Použitie:
 
-* IMU raw data output
-* Debug messages
+* Výstup surových dát z IMU
+* Diagnostika (Debug)
 
-Configuration:
+Konfigurácia:
 
-* Baudrate: 115200
+* Prenosová rýchlosť: 115200 Bd
 
 ---
 
-# Timer Configuration
+# Konfigurácia časovačov
 
 ## TIM1
 
-TIM1 is used as the primary synchronization timer. It generates a 1 Hz PPS signal for LiDAR timestamping and serves as the high-resolution timing provider for IMU timestamps.
+TIM1 sa používa ako hlavný synchronizačný časovač. Generuje 1 Hz PPS signál pre synchronizácu LiDARu a poskytuje čas s vysokým rozlíšením pre dáta IMU.
 
-For ARR we used a value close to the maximum of unsigned 16-bit range for maximal timestamp resolution.
+Pre hodnotu ARR (Auto-Reload Register) sme zvolili hodnotu blízku maximu 16-bitového celého čísla bez znamienka, aby sme dosiahli maximálne rozlíšenie časovej značky.
 
-Timer configuration:
+Konfigurácia časovača:
 
 * Prescaler = 1200 - 1
 * Period = 60000 - 1
-* PWM enabled
+* PWM výstup
 * PWM pulse = 30000
 
 ---
 
 ## TIM2
 
-TIM2 is used for camera hardware triggering.
+TIM2 sa používa na hardvérové spúšťanie (triggerovanie) kamery.
 
-The timer is configured as PWM output and generates a periodic trigger pulse suitable for external camera synchronization.
+Časovač je nakonfigurovaný ako PWM výstup a generuje periodický spúšťací impulz vhodný pre externú synchronizáciu kamery.
 
-Timer configuration:
+Konfigurácia časovača:
 
 * Prescaler = 7199
 * Period = 999
-* PWM pulse = 500
+* PWM pulse = 499
 
-### TIM2 Frequency Calculation
+### Výpočet frekvencie TIM2
 
-System clock:
+Taktovacia frekvencia systému:
 
 ```text
 72 MHz
 ```
 
-Timer input clock:
+Vstupný takt časovača:
 
 ```text
 72 MHz / 7200 = 10 kHz
 ```
 
-PWM frequency:
+Frekvencia PWM:
 
 ```text
 10 kHz / 1000 = 10 Hz
 ```
 
-Therefore:
+Preto:
 
 ```text
-TIM2 trigger frequency = 10 Hz
+Spúšťacia frekvencia TIM2 = 10 Hz
 ```
 
-PWM duty cycle:
+Strieda PWM (PWM znamená ŠIM):
 
 ```text
 500 / 1000 = 50%
 ```
 
-This timer provides periodic camera trigger pulses at 10 Hz.
+Tento časovač poskytuje periodické spúšťacie impulzy pre kameru s frekvenciou 10 Hz.
 
 ---
 
-# Timing Calculations
+# Výpočty časovania
 
-## System Clock
+## Systémový takt (System Clock)
 
-The MCU uses:
+MCU využíva:
 
-* External HSE oscillator
-* PLL x9 multiplier
+* Externý oscilátor HSE
+* Násobičku PLL x9
 
-Typical STM32F103 clock:
+Typický takt pre STM32F103:
 
 ```text
 8 MHz × 9 = 72 MHz
 ```
 
-Therefore:
+Preto:
 
 ```text
 SYSCLK = 72 MHz
@@ -286,21 +282,21 @@ SYSCLK = 72 MHz
 
 ---
 
-## TIM1 Tick Frequency
+## Frekvencia tikov TIM1
 
-Timer prescaler:
+Preddelička časovača:
 
 ```text
-PSC = 1200
+PSC = 1200 - 1
 ```
 
-Timer clock:
+Takt časovača:
 
 ```text
 72 MHz / 1200 = 60 kHz
 ```
 
-Timer tick period:
+Perióda jedného tiku časovača:
 
 ```text
 1 / 60000 = 16.67 us
@@ -308,186 +304,185 @@ Timer tick period:
 
 ---
 
-## TIM1 Overflow Period
+## Perióda pretečenia TIM1
 
-Timer period:
-
-```text
-ARR = 60000
-```
-
-Overflow frequency:
+Perióda časovača (ARR):
 
 ```text
-60000 / 60000 Hz = 1 second
+ARR = 60000 - 1
 ```
 
-Therefore:
+Frekvencia pretečenia:
 
 ```text
-TIM1 overflow period = 1 second
+60000 / 60000 Hz = 1 sekunda
 ```
 
-This timer is used as a PPS-like timing source.
+Preto:
+
+```text
+Perióda pretečenia TIM1 = 1 sekunda
+```
+
+Tento časovač sa používa ako zdroj PPS.
 
 ---
 
-# PPS Timing Logic
+## Logika časovania PPS
 
-LiDAR datasheet specifies, that GPRMC should be transmitted after the falling edge of PPS. In our case that is 500ms. This feature is implemented utilizing interrupts for falling edge of PPS, which sets the GPRMC flag, that controls the transmission of GPRMC.
+Datasheed LiDAR-u uvádza, že GPRMC veta má byť poslaná po klesajúcej hrane PPS signálu, čo v našom projekte predstavuje čas približne 500ms od začiatku periódy. Naša implementácia využíva prerušenie pri klesajúcej hrane PPS signálu, v rámci ktorého sa nastaví príznak (flag), ktorý v hlavnej slučke spúšťa posielanie GPRMC vety. 
 
-This ensures:
+To zaisťuje:
 
-* LiDAR synchronization alignment in compliance with the datasheet
-* stable PPS edge timing
-* deterministic timestamping
-
----
-
-# DMA Usage
-
-DMA is used for UART GPS transmission.
-
-Advantages:
-
-* reduced CPU load of main loop
-* non-blocking UART transfers
-* better timing determinism
+* Posielanie GPS času LiDAR-u v súlade s dokumentáciou
+* Stabilné časovanie hrán PPS
+* Deterministické generovanie časových pečiatok
 
 ---
 
-# Interrupt Callbacks Used
+# Využitie DMA
 
-The project heavily relies on HAL callbacks.
+DMA sa používa na UART prenos GPS správ.
 
-Implemented callbacks include:
+Výhody:
+
+* Zníženie zaťaženia procesora v hlavnej slučke
+* Neblokujúce prenosy cez UART
+* Lepší determinizmus časovania
+
+---
+
+# Použité callback funkcie prerušení
+
+Projekt sa vo veľkej miere spolieha na HAL callback funkcie.
+
+Implementované callbacky zahŕňajú:
 
 * `HAL_GPIO_EXTI_Callback`
 * `HAL_TIM_PeriodElapsedCallback`
 * `HAL_I2C_MemRxCpltCallback`
 * `HAL_I2C_ErrorCallback`
 
-These callbacks provide:
+Tieto callbacky zabezpečujú:
 
-* asynchronous sensor acquisition
-* event-driven synchronization
-* timestamp handling
+* Asynchrónny zber dát zo senzorov
+* Udalosťami riadenú synchronizáciu
+* Spracovanie časových pečiatok
 
 ---
 
-# IMU Data Packet Structure
+# Štruktúra dátového balíka IMU
 
-The firmware allocates:
+Firmvér alokuje:
 
 ```c
 #define IMU_DATA_RAW_SIZE (14 + 4 + 2)
 ```
 
-Packet composition:
+Zloženie balíka:
 
-| Section         | Size     |
-| --------------- | -------- |
-| IMU raw data    | 14 bytes |
-| Timestamp major | 2 bytes  |
-| Timestamp minor | 2 bytes  |
-| Line ending     | 2 bytes  |
+| Sekcia | Veľkosť |
+| --- | --- |
+| Surové dáta z IMU | 14 bajtov |
+| Hlavná časť časovej pečiatky (Timestamp major) | 2 bajty |
+| Vedľajšia časť časovej pečiatky (Timestamp minor) | 2 bajty |
+| Ukončenie riadka - pomáha so synchronizáciou | 2 bajty |
 
-Total:
+Celkovo:
 
 ```text
-20 bytes
+20 bajtov
 ```
 
 ---
 
-# Software Architecture
+# Softvérová architektúra
 
-## Main Loop Responsibilities
+## Hlavná slučka
 
-The main loop performs:
+Hlavná slučka vykonáva:
 
-1. GPS message scheduling
-2. IMU DMA state handling
-3. I2C memory reads
-4. Synchronization management
-5. Camera trigger timing management
+1. Plánovanie správ GPS
+2. Riadenie stavu DMA pre IMU
+3. Čítanie z pamäte cez I2C
+4. Správu synchronizácie
+5. Riadenie časovania spúšťania kamery
 
-The architecture is primarily:
+Architektúra je primárne:
 
-* interrupt-driven
-* DMA-assisted
-* non-blocking
-
----
-
-# Important Source Files
-
-| File      | Purpose                   |
-| --------- | ------------------------- |
-| `main.c`  | Main application logic    |
-| `IMU.c`   | IMU driver implementation |
-| `IMU.h`   | IMU driver interface      |
-| `usart.c` | UART configuration        |
-| `tim.c`   | Timer configuration       |
-| `gpio.c`  | GPIO initialization       |
-| `i2c.c`   | I2C configuration         |
+* Riadená prerušeniami
+* Využívajúca DMA prenosy
+* Neblokujúca
 
 ---
 
-# How It Works
+# Dôležité zdrojové súbory
 
-## High-Level Flow
+| Súbor | Účel |
+| --- | --- |
+| `main.c` | Hlavná logika aplikácie |
+| `IMU.c` | Implementácia ovládača IMU |
+| `IMU.h` | Rozhranie ovládača IMU |
+| `usart.c` | Konfigurácia UART |
+| `tim.c` | Konfigurácia časovačov |
+| `gpio.c` | Inicializácia GPIO |
+| `i2c.c` | Konfigurácia I2C |
 
-### GPRMC Emulation
+---
+
+# Ako to funguje
+
+## Prehľad toku na vysokej úrovni
+
+### Emulácia GPRMC
 
 ```text
-TIM1 -> PPS timing
+TIM1 -> Časovanie PPS
         ↓
-Generate GPS message
+Vygenerovanie GPS správy
         ↓
-Transmit GPS over UART DMA
+Odoslanie GPS cez UART DMA
 ```
 
-### IMU Data Acquisition
+### Zber dát z IMU
 
 ```text
-IMU DRDY interrupt occurs
+Nastane prerušenie DRDY z IMU
         ↓
-Timestamp captured
+Zachytenie presného času
         ↓
-I2C burst read starts
+Spustenie sekvenčného čítania cez I2C
         ↓
-IMU data sent over UART2
+Odoslanie dát z IMU cez UART2
 ```
 
-### Camera Hardware Triggering
+### Hardvérové časovanie kamery
 
 ```text
-TIM2 PWM output
+PWM výstup z TIM2
         ↓
-10 Hz trigger generation
+Generovanie taktovacieho signálu s frekvenciou 10 Hz
         ↓
-Camera trigger pulse
+Spúšťací impulz kamery
 ```
 
 ---
 
+# Poznámky
 
-# Notes
+Projekt je zameraný na presnú časovú synchronizáciu medzi:
 
-The project is focused on precise timing synchronization between:
+* Časovaním GPS
+* Spúšťaním LiDARu
+* Zberom dát z IMU
+* Hardvérovým spúšťaním kamery
 
-* GPS timing
-* LiDAR triggering
-* IMU acquisition
-* Camera hardware triggering
-
-The implementation uses efficient embedded techniques:
+Implementácia využíva efektívne techniky vnorených systémov:
 
 * DMA
-* interrupts
-* timestamping
-* asynchronous transfers
-* PWM synchronization
+* Prerušenia
+* Časové značky
+* Asynchrónne prenosy
+* PWM synchronizáciu
 
-This makes the firmware suitable for real-time sensor synchronization applications.
+Vďaka tomu je tento firmvér vhodný pre našu aplikáciu vyžadujúcu synchronizáciu senzorov v reálnom čase.
