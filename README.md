@@ -1,5 +1,6 @@
 # Synchronizačný firmvér pre STM32 LiDAR + GPS + IMU
 
+(Táto dokumentácia bola exportovaná z README.md príslušného GitHub repozitáru projektu. Pre lepšie pochopenie kontextu, korektné fungovanie relatívnych odkazov a zobrazenie niektorých príloh využite dokumentáciu pod [týmto odkazom](https://github.com/STU-FEI-TP26-FAST-LIVO2/STM32-LiDAR-GPS-EMULATION).)
 ## Prehľad
 
 Tento projekt obsahuje aplikáciu  STM32 navrhnutú na synchronizáciu a emuláciu:
@@ -16,9 +17,13 @@ Projekt využíva:
 * UART komunikáciu
 * DMA prenosy
 * I2C zber dát z IMU
-* Synchronizáciu pomocou externých prerušení
-* Časovanie PPS (Pulse Per Second) založené na časovačoch
+* Synchronizáciu pomocou externých prerušení* Časovanie PPS (Pulse Per Second) založené na časovačoch
 * PWM výstupy
+
+Riešenie je navrhnuté vzhľadom na nasledujúcu špecifikáciu:
+- LiDAR: Hesai XT-16 ([odkaz na datasheet](https://www.hesaitech.com/wp-content/uploads/2025/04/PandarXT-16_User_Manual_X02-en-250410.pdf))
+- IMU: ICM-40609-D ([odkaz na datasheet](https://www.mouser.com/datasheet/2/400/ds_000330_icm_40609_d_v1_2-3420717.pdf?srsltid=AfmBOortTJJlb19XL3UqeWnBT42KF1afshsWXbI3Jm0jdUoGn5Cy7GmG))
+- Požiadavky pre FAST-LIVO2 synchronizáciu ([odkaz na repozitár](https://github.com/Rhymer-Lcy/FAST-LIVO2-ROS2-MID360-Fisheye))
 
 ---
 
