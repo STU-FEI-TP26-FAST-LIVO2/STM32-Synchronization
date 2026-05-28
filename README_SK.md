@@ -189,7 +189,7 @@ Konfigurácia:
 Použitie:
 
 * Výstup surových dát z IMU
-* (Debug)
+* Diagnostika (Debug)
 
 Konfigurácia:
 
