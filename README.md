@@ -1,6 +1,5 @@
 # Synchronizačný firmvér pre STM32 LiDAR + GPS + IMU
 
-(Táto dokumentácia bola exportovaná z README.md príslušného GitHub repozitáru projektu. Pre lepšie pochopenie kontextu, korektné fungovanie relatívnych odkazov a zobrazenie niektorých príloh využite dokumentáciu pod [týmto odkazom](https://github.com/STU-FEI-TP26-FAST-LIVO2/STM32-LiDAR-GPS-EMULATION).)
 ## Prehľad
 
 Tento projekt obsahuje aplikáciu  STM32 navrhnutú na synchronizáciu a emuláciu:
