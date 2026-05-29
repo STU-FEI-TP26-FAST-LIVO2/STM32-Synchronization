@@ -20,6 +20,11 @@ Projekt využíva:
 * Časovanie PPS (Pulse Per Second) založené na časovačoch
 * PWM výstupy
 
+Riešenie je navrhnuté vzhľadom na nasledujúcu špecifikáciu:
+- LiDAR: Hesai XT-16 ([odkaz na datasheet](https://www.hesaitech.com/wp-content/uploads/2025/04/PandarXT-16_User_Manual_X02-en-250410.pdf))
+- IMU: ICM-40609-D ([odkaz na datasheet](https://www.mouser.com/datasheet/2/400/ds_000330_icm_40609_d_v1_2-3420717.pdf?srsltid=AfmBOortTJJlb19XL3UqeWnBT42KF1afshsWXbI3Jm0jdUoGn5Cy7GmG))
+- Požiadavky pre FAST-LIVO2 synchronizáciu ([odkaz na repozitár](https://github.com/Rhymer-Lcy/FAST-LIVO2-ROS2-MID360-Fisheye))
+
 ---
 
 # Návod na spustenie
