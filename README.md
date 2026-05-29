@@ -16,7 +16,8 @@ Projekt využíva:
 * UART komunikáciu
 * DMA prenosy
 * I2C zber dát z IMU
-* Synchronizáciu pomocou externých prerušení* Časovanie PPS (Pulse Per Second) založené na časovačoch
+* Synchronizáciu pomocou externých prerušení
+* Časovanie PPS (Pulse Per Second) založené na časovačoch
 * PWM výstupy
 
 Riešenie je navrhnuté vzhľadom na nasledujúcu špecifikáciu:
